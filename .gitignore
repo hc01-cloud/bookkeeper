@@ -1,0 +1,16 @@
+node_modules/
+db/*.db
+db/*.db-shm
+db/*.db-wal
+uploads/receipts/*
+uploads/shifts/*
+uploads/csv/*
+uploads/ocr_temp/*
+!uploads/receipts/.gitkeep
+!uploads/shifts/.gitkeep
+!uploads/csv/.gitkeep
+!uploads/ocr_temp/.gitkeep
+.env
+*.log
+.DS_Store
+启动记账系统.command
