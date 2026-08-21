@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const ExcelJS = require('exceljs');
 
-module.exports = (db) => {
+module.exports = (db, config) => {
 
   // ── 社保配置 ──────────────────────────────────────────
   router.get('/ss-config', requireAuth, (req, res) => {
@@ -39,17 +39,17 @@ module.exports = (db) => {
   });
 
   router.post('/employees', requireAuth, isAdmin, (req, res) => {
-    const { name, id_card, position, hire_date, ss_base, base_salary, note } = req.body;
+    const { name, id_card, position, hire_date, ss_base, base_salary, employment_type, daily_wage, note } = req.body;
     if (!name || !ss_base || !base_salary) return res.status(400).json({ error: '姓名、社保基数和基本工资必填' });
-    const r = db.prepare(`INSERT INTO employees (name,id_card,position,hire_date,ss_base,base_salary,note) VALUES (?,?,?,?,?,?,?)`)
-      .run(name, id_card||'', position||'', hire_date||'', parseFloat(ss_base), parseFloat(base_salary), note||'');
+    const r = db.prepare(`INSERT INTO employees (name,id_card,position,hire_date,ss_base,base_salary,employment_type,daily_wage,note) VALUES (?,?,?,?,?,?,?,?,?)`)
+      .run(name, id_card||'', position||'', hire_date||'', parseFloat(ss_base), parseFloat(base_salary), employment_type||'全职', parseFloat(daily_wage)||0, note||'');
     res.json({ success: true, id: r.lastInsertRowid });
   });
 
   router.put('/employees/:id', requireAuth, isAdmin, (req, res) => {
-    const { name, id_card, position, hire_date, ss_base, base_salary, note } = req.body;
-    db.prepare(`UPDATE employees SET name=?,id_card=?,position=?,hire_date=?,ss_base=?,base_salary=?,note=? WHERE id=?`)
-      .run(name, id_card||'', position||'', hire_date||'', parseFloat(ss_base), parseFloat(base_salary), note||'', req.params.id);
+    const { name, id_card, position, hire_date, ss_base, base_salary, employment_type, daily_wage, note } = req.body;
+    db.prepare(`UPDATE employees SET name=?,id_card=?,position=?,hire_date=?,ss_base=?,base_salary=?,employment_type=?,daily_wage=?,note=? WHERE id=?`)
+      .run(name, id_card||'', position||'', hire_date||'', parseFloat(ss_base), parseFloat(base_salary), employment_type||'全职', parseFloat(daily_wage)||0, note||'', req.params.id);
     res.json({ success: true });
   });
 
@@ -91,7 +91,7 @@ module.exports = (db) => {
     const deds = db.prepare('SELECT * FROM employee_deductions WHERE employee_id=?').all(employee_id);
     const specialDed = deds.reduce((s, d) => s + d.monthly_amount, 0);
 
-    const result = calcPayroll(emp, parseFloat(bonus), parseFloat(other_income), specialDed, cfg);
+    const result = calcPayroll(emp, parseFloat(bonus), parseFloat(other_income), specialDed, cfg, config.TAX_EXEMPTION, config.TAX_BRACKETS);
     res.json(result);
   });
 
@@ -113,6 +113,25 @@ module.exports = (db) => {
         d.special_deductions,d.taxable_income,d.income_tax,d.net_salary,
         d.pension_company,d.medical_company,d.unemployment_company,d.injury_company,d.maternity_company,
         d.total_company_ss,d.total_cost,d.note||'',req.session.user.id);
+
+    // 自动在支出表创建工资支出记录
+    const emp = db.prepare('SELECT name, employment_type FROM employees WHERE id=?').get(d.employee_id);
+    const empLabel = emp ? `${emp.name}（${emp.employment_type || '全职'}）` : `员工#${d.employee_id}`;
+    const payDate = `${d.year}-${String(d.month).padStart(2,'0')}-01`;
+    const desc = `${d.year}年${d.month}月 ${empLabel} 工资`;
+    // 使用配置中的公共业务线和支付方式
+    const defaultBL = (config.SEED_BUSINESS_LINES || []).find(bl => bl.code === 'common') || (config.SEED_BUSINESS_LINES || [])[0] || { code: 'common' };
+    const defaultPayMethod = (config.PAYMENT_METHODS || ['银行转账'])[0];
+    // 检查是否已存在同月同员工的工资支出记录
+    const existExp = db.prepare(
+      "SELECT id FROM expense_records WHERE date=? AND category='人力成本' AND description LIKE ? LIMIT 1"
+    ).get(payDate, `${d.year}年${d.month}月 ${empLabel}%`);
+    if (!existExp) {
+      db.prepare(
+        'INSERT INTO expense_records (date, business_line, category, amount, vendor, description, payment_method, source, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      ).run(payDate, defaultBL.code, '人力成本', d.total_cost, empLabel, desc, defaultPayMethod, 'payroll', req.session.user.id);
+    }
+
     res.json({ success: true });
   });
 
@@ -144,7 +163,7 @@ module.exports = (db) => {
       WHERE r.year=? AND r.month=? ORDER BY e.name`).all(parseInt(year), parseInt(month));
 
     const wb = new ExcelJS.Workbook();
-    wb.creator = '账簿工资管理系统';
+    wb.creator = config.APP_NAME + '工资管理系统';
 
     // 工资明细
     const ws = wb.addWorksheet(`${year}年${month}月工资表`);
@@ -196,18 +215,9 @@ module.exports = (db) => {
 };
 
 // ── 个税计算（月度简易法）────────────────────────────────
-function calcIncomeTax(taxableMonthly) {
+function calcIncomeTax(taxableMonthly, brackets) {
   if (taxableMonthly <= 0) return 0;
-  const brackets = [
-    [80000, 0.45, 15160],
-    [55000, 0.35,  7160],
-    [35000, 0.30,  4410],
-    [25000, 0.25,  2660],
-    [12000, 0.20,  1410],
-    [ 3000, 0.10,   210],
-    [    0, 0.03,     0],
-  ];
-  for (const [threshold, rate, deduction] of brackets) {
+  for (const { threshold, rate, deduction } of brackets) {
     if (taxableMonthly > threshold) {
       return round2(taxableMonthly * rate - deduction);
     }
@@ -215,7 +225,7 @@ function calcIncomeTax(taxableMonthly) {
   return 0;
 }
 
-function calcPayroll(emp, bonus, otherIncome, specialDed, cfg) {
+function calcPayroll(emp, bonus, otherIncome, specialDed, cfg, taxExemption, taxBrackets) {
   const gross = round2(emp.base_salary + bonus + otherIncome);
   const base  = emp.ss_base;
 
@@ -224,9 +234,9 @@ function calcPayroll(emp, bonus, otherIncome, specialDed, cfg) {
   const unemploymentP = round2(base * cfg.unemployment_personal);
   const totalPersonalSS = round2(pensionP + medicalP + unemploymentP);
 
-  // 应纳税所得额 = 应发 - 5000起征点 - 个人社保 - 专项附加扣除
-  const taxable = Math.max(0, round2(gross - 5000 - totalPersonalSS - specialDed));
-  const tax = calcIncomeTax(taxable);
+  // 应纳税所得额 = 应发 - 起征点 - 个人社保 - 专项附加扣除
+  const taxable = Math.max(0, round2(gross - taxExemption - totalPersonalSS - specialDed));
+  const tax = calcIncomeTax(taxable, taxBrackets);
   const net = round2(gross - totalPersonalSS - tax);
 
   const pensionC      = round2(base * cfg.pension_company);

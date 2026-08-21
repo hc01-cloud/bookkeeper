@@ -178,6 +178,36 @@ module.exports = (db, uploadsDir) => {
     res.json(rows);
   });
 
+  // 获取单条收入记录
+  router.get('/:id', requireAuth, (req, res) => {
+    const record = db.prepare('SELECT * FROM income_records WHERE id = ?').get(req.params.id);
+    if (!record) return res.status(404).json({ error: '记录不存在' });
+    if (!canAccessLine(req.session.user, record.business_line)) return res.status(403).json({ error: '无权限' });
+    res.json(record);
+  });
+
+  // 编辑收入记录
+  router.put('/:id', requireAuth, (req, res) => {
+    const record = db.prepare('SELECT * FROM income_records WHERE id = ?').get(req.params.id);
+    if (!record) return res.status(404).json({ error: '记录不存在' });
+    if (!canAccessLine(req.session.user, record.business_line)) return res.status(403).json({ error: '无权限' });
+    const { date, business_line, amount, payment_method, category, description, ticket_type, ticket_no } = req.body;
+    db.prepare(
+      'UPDATE income_records SET date=?, business_line=?, amount=?, payment_method=?, category=?, description=?, ticket_type=?, ticket_no=? WHERE id=?'
+    ).run(
+      date || record.date,
+      business_line || record.business_line,
+      amount ? parseFloat(amount) : record.amount,
+      payment_method || record.payment_method,
+      category || record.category,
+      description !== undefined ? description : record.description,
+      ticket_type || record.ticket_type,
+      ticket_no !== undefined ? ticket_no : record.ticket_no,
+      req.params.id
+    );
+    res.json({ success: true });
+  });
+
   router.delete('/:id', requireAuth, (req, res) => {
     const record = db.prepare('SELECT * FROM income_records WHERE id = ?').get(req.params.id);
     if (!record) return res.status(404).json({ error: '记录不存在' });

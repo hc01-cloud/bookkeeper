@@ -8,11 +8,14 @@
   },
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "setup": "node scripts/setup.js",
+    "postinstall": "node -e \"if(!require('fs').existsSync('.env')){console.log('\\n⚠️  未检测到 .env 文件。请运行: npm run setup\\n');}\""
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.2",
     "bcryptjs": "^2.4.3",
+    "dotenv": "^17.4.2",
     "exceljs": "^4.4.0",
     "express": "^4.18.2",
     "express-session": "^1.17.3",

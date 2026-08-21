@@ -4,8 +4,6 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-const CATEGORIES = ['原材料采购', '商品采购', '活动物资', '人力成本', '水电费', '办公耗材', '设备维修', '租金', '运输费', '其他支出'];
-
 module.exports = (db, uploadsDir) => {
   const receiptStorage = multer.diskStorage({
     destination: (req, file, cb) => {
@@ -23,14 +21,42 @@ module.exports = (db, uploadsDir) => {
   router.get('/categories', (req, res) => res.json(CATEGORIES));
 
   router.post('/', requireAuth, upload.array('receipts', 10), (req, res) => {
-    const { date, business_line, category, amount, vendor, description, ticket_type, ticket_no } = req.body;
+    const { date, business_line, category, amount, vendor, description, ticket_type, ticket_no, payment_method } = req.body;
     if (!date || !business_line || !category || !amount) return res.status(400).json({ error: '信息不完整' });
     if (!canAccessLine(req.session.user, business_line)) return res.status(403).json({ error: '无权限操作此业务线' });
     const images = (req.files || []).map(f => f.filename);
     const result = db.prepare(
-      'INSERT INTO expense_records (date, business_line, category, amount, vendor, description, ticket_type, ticket_no, receipt_images, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-    ).run(date, business_line, category, parseFloat(amount), vendor || '', description || '', ticket_type || '无票', ticket_no || '', JSON.stringify(images), req.session.user.id);
+      'INSERT INTO expense_records (date, business_line, category, amount, vendor, description, ticket_type, ticket_no, payment_method, receipt_images, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    ).run(date, business_line, category, parseFloat(amount), vendor || '', description || '', ticket_type || '无票', ticket_no || '', payment_method || '银行转账', JSON.stringify(images), req.session.user.id);
     res.json({ success: true, id: result.lastInsertRowid });
+  });
+
+  // 获取单条支出记录
+  router.get('/:id', requireAuth, (req, res) => {
+    const record = db.prepare('SELECT * FROM expense_records WHERE id = ?').get(req.params.id);
+    if (!record) return res.status(404).json({ error: '记录不存在' });
+    if (!canAccessLine(req.session.user, record.business_line)) return res.status(403).json({ error: '无权限' });
+    res.json(record);
+  });
+
+  // 编辑支出记录
+  router.put('/:id', requireAuth, upload.array('receipts', 10), (req, res) => {
+    const record = db.prepare('SELECT * FROM expense_records WHERE id = ?').get(req.params.id);
+    if (!record) return res.status(404).json({ error: '记录不存在' });
+    if (!canAccessLine(req.session.user, record.business_line)) return res.status(403).json({ error: '无权限操作此业务线' });
+    const { date, business_line, category, amount, vendor, description, ticket_type, ticket_no, payment_method } = req.body;
+    const newImages = (req.files || []).map(f => f.filename);
+    // 合并已有图片和新上传的图片
+    const existingImages = JSON.parse(record.receipt_images || '[]');
+    const images = [...existingImages, ...newImages];
+    db.prepare(
+      'UPDATE expense_records SET date=?, business_line=?, category=?, amount=?, vendor=?, description=?, ticket_type=?, ticket_no=?, payment_method=?, receipt_images=? WHERE id=?'
+    ).run(date || record.date, business_line || record.business_line, category || record.category,
+      amount ? parseFloat(amount) : record.amount, vendor !== undefined ? vendor : record.vendor,
+      description !== undefined ? description : record.description,
+      ticket_type || record.ticket_type, ticket_no !== undefined ? ticket_no : record.ticket_no,
+      payment_method || record.payment_method, JSON.stringify(images), req.params.id);
+    res.json({ success: true });
   });
 
   router.get('/', requireAuth, (req, res) => {
@@ -52,6 +78,22 @@ module.exports = (db, uploadsDir) => {
     const rows = db.prepare(`SELECT e.*, u.name as creator_name FROM expense_records e LEFT JOIN users u ON e.created_by = u.id ${whereStr} ORDER BY date DESC, id DESC LIMIT ? OFFSET ?`).all(...params, parseInt(limit), offset);
     const total = db.prepare(`SELECT COUNT(*) as cnt FROM expense_records ${whereStr}`).get(...params).cnt;
     res.json({ rows, total });
+  });
+
+  // 删除支出记录中的单张票据图片
+  router.delete('/:id/receipts/:filename', requireAuth, (req, res) => {
+    const record = db.prepare('SELECT * FROM expense_records WHERE id = ?').get(req.params.id);
+    if (!record) return res.status(404).json({ error: '记录不存在' });
+    if (!canAccessLine(req.session.user, record.business_line)) return res.status(403).json({ error: '无权限' });
+    const images = JSON.parse(record.receipt_images || '[]');
+    const updated = images.filter(f => f !== req.params.filename);
+    // 删除物理文件
+    try {
+      const p = path.join(uploadsDir, 'receipts', req.params.filename);
+      if (fs.existsSync(p)) fs.unlinkSync(p);
+    } catch (e) {}
+    db.prepare('UPDATE expense_records SET receipt_images=? WHERE id=?').run(JSON.stringify(updated), req.params.id);
+    res.json({ success: true });
   });
 
   router.delete('/:id', requireAuth, (req, res) => {

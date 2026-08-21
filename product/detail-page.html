@@ -1,0 +1,421 @@
+<!--
+  小红书商品详情页
+  尺寸：宽 750px，高度自适应
+  可直接浏览器打开后截图作为详情长图
+  也可作为独立商品落地页使用
+-->
+<title>AI帮你部署专属记账系统 · ¥9.90</title>
+<style>
+  :root {
+    --blue: #1a73e8;
+    --green: #10b981;
+    --red: #ef4444;
+    --orange: #f97316;
+    --bg: #f8fafc;
+    --text: #1e293b;
+    --sub: #64748b;
+    --card: #ffffff;
+    --blue-light: #eff6ff;
+    --red-light: #fef2f2;
+    --green-light: #f0fdf4;
+    --yellow-light: #fffbeb;
+    --radius: 16px;
+    --shadow: 0 4px 16px rgba(0,0,0,0.06);
+    --font: 'PingFang SC', -apple-system, 'Microsoft YaHei', sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    width: 750px;
+    margin: 0 auto;
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.8;
+  }
+
+  section {
+    padding: 60px 40px;
+  }
+
+  h2 {
+    font-size: 36px;
+    font-weight: 800;
+    margin-bottom: 24px;
+    line-height: 1.3;
+  }
+
+  h3 {
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 16px;
+  }
+
+  p, li {
+    font-size: 24px;
+    color: #475569;
+    margin-bottom: 8px;
+  }
+
+  .card {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 32px;
+    margin-bottom: 24px;
+    box-shadow: var(--shadow);
+  }
+
+  .tag {
+    display: inline-block;
+    background: var(--blue);
+    color: #fff;
+    padding: 6px 20px;
+    border-radius: 20px;
+    font-size: 22px;
+    font-weight: 600;
+    margin-bottom: 16px;
+  }
+
+  .btn {
+    display: inline-block;
+    background: var(--blue);
+    color: #fff;
+    padding: 18px 48px;
+    border-radius: 28px;
+    font-size: 28px;
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .btn-orange {
+    background: var(--orange);
+  }
+
+  .price {
+    font-size: 72px;
+    font-weight: 900;
+    color: var(--red);
+    line-height: 1;
+  }
+
+  .price-small {
+    font-size: 36px;
+  }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+
+  .check-list { list-style: none; }
+  .check-list li::before { content: '✅ '; }
+  .cross-list { list-style: none; }
+  .cross-list li::before { content: '❌ '; }
+
+  .compare-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 22px;
+  }
+  .compare-table th {
+    background: var(--blue);
+    color: #fff;
+    padding: 16px;
+    text-align: center;
+  }
+  .compare-table td {
+    padding: 14px 16px;
+    border-bottom: 1px solid #e2e8f0;
+    text-align: center;
+  }
+  .compare-table tr:nth-child(even) td { background: #f8fafc; }
+  .compare-table .highlight { color: var(--green); font-weight: 700; }
+
+  .step-flow {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .step-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: rgba(255,255,255,0.15);
+    padding: 20px 24px;
+    border-radius: 12px;
+  }
+  .step-num {
+    width: 52px; height: 52px;
+    border-radius: 50%;
+    background: #fff;
+    color: var(--blue);
+    font-size: 28px;
+    font-weight: 900;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .step-num.done { background: var(--green); color: #fff; }
+
+  .faq-item {
+    margin-bottom: 20px;
+  }
+  .faq-q {
+    font-weight: 700;
+    font-size: 24px;
+    color: var(--text);
+  }
+  .faq-a {
+    font-size: 22px;
+    color: #475569;
+    margin-top: 8px;
+  }
+
+  /* 模块背景 */
+  .sec-hero { background: linear-gradient(135deg, #1a73e8 0%, #4f8ff7 100%); color: #fff; text-align: center; }
+  .sec-hero h2, .sec-hero p, .sec-hero li { color: #fff; }
+  .sec-pain { background: var(--red-light); }
+  .sec-intro { background: var(--blue-light); }
+  .sec-features { background: #fff; }
+  .sec-compare { background: #fff; }
+  .sec-fit { background: var(--green-light); }
+  .sec-deliver { background: var(--blue-light); }
+  .sec-flow { background: #1e293b; color: #fff; }
+  .sec-flow h2, .sec-flow h3, .sec-flow p, .sec-flow li { color: #fff; }
+  .sec-faq { background: var(--bg); }
+  .sec-warn { background: var(--yellow-light); }
+  .sec-cta { background: #1e293b; color: #fff; text-align: center; }
+  .sec-cta h2, .sec-cta p { color: #fff; }
+</style>
+
+<!-- ═══ 模块 0：顶部英雄区 ═══ -->
+<section class="sec-hero">
+  <div class="tag" style="background:rgba(255,255,255,0.2);">🤖 AI 帮你部署</div>
+  <h2 style="font-size:44px;">专属记账系统</h2>
+  <p style="font-size:22px; color:rgba(255,255,255,0.8);">不用安装数据库 · 不用写代码 · 5 分钟上线</p>
+
+  <div style="margin: 32px 0;">
+    <span class="tag" style="background:rgba(255,255,255,0.15); margin:4px;">中小企业</span>
+    <span class="tag" style="background:rgba(255,255,255,0.15); margin:4px;">门店</span>
+    <span class="tag" style="background:rgba(255,255,255,0.15); margin:4px;">工作室</span>
+    <span class="tag" style="background:rgba(255,255,255,0.15); margin:4px;">个体户</span>
+  </div>
+
+  <div class="price" style="color:#fff; margin:24px 0;">¥9.90</div>
+  <p style="font-size:20px; color:rgba(255,255,255,0.7);">一条数据线的钱，换一套专属财务系统</p>
+  <div style="margin-top:32px;">
+    <span class="btn btn-orange" style="font-size:30px; padding:20px 60px;">🛒 立即购买</span>
+  </div>
+</section>
+
+<!-- ═══ 模块 1：痛点 ═══ -->
+<section class="sec-pain">
+  <h2>你是否有这些烦恼？</h2>
+  <ul class="cross-list" style="list-style:none;">
+    <li style="font-size:26px; margin-bottom:16px;">开了个小公司/门店，日常收支记在 Excel 里，月底一塌糊涂</li>
+    <li style="font-size:26px; margin-bottom:16px;">找了代理记账，但他们只管报税，日常流水没人帮你理</li>
+    <li style="font-size:26px; margin-bottom:16px;">员工工资要手动算社保个税，每次按计算器按到崩溃</li>
+    <li style="font-size:26px; margin-bottom:16px;">想买个财务软件，金蝶用友太贵太复杂，根本用不起来</li>
+  </ul>
+  <p style="text-align:center; font-size:28px; font-weight:700; color:var(--text); margin-top:24px;">
+    如果你中了 2 条以上，往下看 ↓
+  </p>
+</section>
+
+<!-- ═══ 模块 2：产品介绍 ═══ -->
+<section class="sec-intro">
+  <h2>这是一套"AI 帮你部署"<br>的轻量财务系统</h2>
+  <div class="card" style="text-align:center;">
+    <p style="font-size:24px; line-height:2;">
+      📦 <strong>开源项目</strong> + 🤖 <strong>AI Skill</strong> + 🛠️ <strong>配置服务</strong>
+    </p>
+    <div style="font-size:22px; color:#475569; line-height:2; margin-top:16px;">
+      你提供公司信息<br>
+      → AI 自动配置品牌、部门、类目<br>
+      → AI 自动设定社保费率、个税规则<br>
+      → <strong>5 分钟上线，浏览器打开即用</strong>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 模块 3：核心功能 ═══ -->
+<section class="sec-features">
+  <h2>功能一览</h2>
+
+  <div class="card">
+    <h3>📊 收支管理</h3>
+    <p>手工录入 / 微信支付宝流水导入 / 交班单 OCR 识别</p>
+    <p>每笔记录关联票据类型（专票/普票/收据/无票）</p>
+  </div>
+
+  <div class="card">
+    <h3>👥 工资核算</h3>
+    <p>自动计算五险一金（个人+公司）和个税</p>
+    <p>支持专项附加扣除（子女教育、房贷、赡养老人等）</p>
+    <p>一键导出工资表 Excel</p>
+  </div>
+
+  <div class="card">
+    <h3>📈 报表导出</h3>
+    <p>月度收支汇总 + 票据汇总 + 工资表</p>
+    <p>Excel 格式，直接发给代理记账公司</p>
+  </div>
+
+  <div class="card">
+    <h3>🏢 多业务线</h3>
+    <p>支持按部门/项目/门店独立核算</p>
+    <p>管理员 + 业务负责人两级权限</p>
+  </div>
+
+  <div class="card">
+    <h3>🎨 品牌定制</h3>
+    <p>登录页文案、系统名称、配色 — 全部可配置</p>
+    <p>社保地区、支付方式、票据类型 — 不改一行代码</p>
+  </div>
+</section>
+
+<!-- ═══ 模块 4：对比表 ═══ -->
+<section class="sec-compare">
+  <h2>和传统财务软件比</h2>
+  <table class="compare-table">
+    <tr><th>对比项</th><th>传统财务软件</th><th class="highlight">👉 本产品</th></tr>
+    <tr><td>价格</td><td>数千-上万元/年</td><td class="highlight">¥9.90 一次性</td></tr>
+    <tr><td>部署</td><td>需要 IT 人员</td><td class="highlight">AI 自动部署</td></tr>
+    <tr><td>数据库</td><td>MySQL/Oracle 需安装</td><td class="highlight">内置 SQLite，零配置</td></tr>
+    <tr><td>学习成本</td><td>需要培训</td><td class="highlight">打开浏览器即用</td></tr>
+    <tr><td>数据归属</td><td>云端，不放心</td><td class="highlight">完全在你电脑上</td></tr>
+    <tr><td>更新</td><td>付费升级</td><td class="highlight">GitHub 持续免费更新</td></tr>
+    <tr><td>适用</td><td>中大型企业</td><td class="highlight">中小企业/门店/工作室</td></tr>
+  </table>
+</section>
+
+<!-- ═══ 模块 5：适用人群 ═══ -->
+<section class="sec-fit">
+  <h2>适合谁用？</h2>
+  <ul class="check-list" style="list-style:none;">
+    <li style="font-size:24px; margin-bottom:12px;">小微企业/个体工商户（员工 < 50 人）</li>
+    <li style="font-size:24px; margin-bottom:12px;">连锁门店/工作室/项目制团队</li>
+    <li style="font-size:24px; margin-bottom:12px;">已有代理记账，但日常流水需要自己管</li>
+    <li style="font-size:24px; margin-bottom:12px;">想从 Excel 升级但不想花大钱</li>
+    <li style="font-size:24px; margin-bottom:12px;">需要给代理记账提供规范数据</li>
+    <li style="font-size:24px; margin-bottom:12px;">技术小白，不想自己折腾部署</li>
+  </ul>
+  <div style="margin-top:24px; padding:20px; background:#fff; border-radius:12px;">
+    <p style="color:var(--red); font-size:22px;">❌ 不适合：大型企业（需金蝶/用友级功能）</p>
+    <p style="color:var(--red); font-size:22px;">❌ 不适合：需要多人联网协同（单机版）</p>
+  </div>
+</section>
+
+<!-- ═══ 模块 6：交付内容 ═══ -->
+<section class="sec-deliver">
+  <h2>¥9.90 包含什么？</h2>
+  <div class="card">
+    <p style="font-size:26px; margin-bottom:12px;">📦 <strong>完整项目源码</strong> — GitHub 仓库，MIT 开源协议</p>
+    <p style="font-size:26px; margin-bottom:12px;">🤖 <strong>AI Skill 安装文件</strong> — 支持 Claude Code / Codex / WorkBuddy</p>
+    <p style="font-size:26px; margin-bottom:12px;">🛠️ <strong>交互式配置向导</strong> — 运行 <code>npm run setup</code> 自动生成配置</p>
+    <p style="font-size:26px; margin-bottom:12px;">📖 <strong>部署操作指引</strong> — 视频 + 图文教程</p>
+    <p style="font-size:26px; margin-bottom:12px;">💬 <strong>专属售后群</strong> — 使用答疑</p>
+  </div>
+
+  <h3 style="margin-top:24px;">🚀 部署方式二选一</h3>
+  <div class="card">
+    <p style="font-size:24px; margin-bottom:12px;"><strong>方案A：AI 助手部署（推荐）</strong></p>
+    <p>用 Claude Code / Codex 打开项目，说一句<strong>"帮我部署记账系统"</strong>，AI 全自动搞定。</p>
+  </div>
+  <div class="card">
+    <p style="font-size:24px; margin-bottom:12px;"><strong>方案B：自行部署</strong></p>
+    <p>按指引 3 步完成：<br><code>npm install</code> → <code>npm run setup</code> → <code>npm start</code></p>
+  </div>
+</section>
+
+<!-- ═══ 模块 7：使用流程 ═══ -->
+<section class="sec-flow">
+  <h2>5 分钟上手指南</h2>
+  <div class="step-flow">
+    <div class="step-item">
+      <span class="step-num">1</span>
+      <span style="font-size:24px;">下单后获取下载链接，打开项目文件</span>
+    </div>
+    <div class="step-item">
+      <span class="step-num">2</span>
+      <span style="font-size:24px;">用 AI 助手打开项目（或手动运行 npm install）</span>
+    </div>
+    <div class="step-item">
+      <span class="step-num">3</span>
+      <span style="font-size:24px;">告诉 AI 你的公司信息（名称、部门、社保城市）</span>
+    </div>
+    <div class="step-item">
+      <span class="step-num">4</span>
+      <span style="font-size:24px;">AI 自动生成配置并启动系统</span>
+    </div>
+    <div class="step-item">
+      <span class="step-num done">5</span>
+      <span style="font-size:24px;">浏览器打开，开始记账 🎉</span>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 模块 8：常见问题 ═══ -->
+<section class="sec-faq">
+  <h2>你关心的问题</h2>
+
+  <div class="faq-item">
+    <p class="faq-q">Q: 这个系统和金蝶用友有什么区别？</p>
+    <p class="faq-a">定位不同。金蝶是"重型财务软件"，我们是"日常流水管理工具"。你用金蝶报税，用我们记日常账，互相配合。</p>
+  </div>
+
+  <div class="faq-item">
+    <p class="faq-q">Q: AI 部署是什么意思？需要额外付费吗？</p>
+    <p class="faq-a">Claude Code 有免费额度，Codex 也有。部署一次消耗极少，日常使用也是免费的。</p>
+  </div>
+
+  <div class="faq-item">
+    <p class="faq-q">Q: 支持哪些操作系统？</p>
+    <p class="faq-a">macOS / Windows / Linux 都可以。只要有 Node.js v22+。</p>
+  </div>
+
+  <div class="faq-item">
+    <p class="faq-q">Q: 可以给多家公司用吗？</p>
+    <p class="faq-a">可以。每家公司一个目录、一个端口，互不影响。</p>
+  </div>
+
+  <div class="faq-item">
+    <p class="faq-q">Q: 不满意可以退款吗？</p>
+    <p class="faq-a">7 天无理由退款。本就是开源免费的，我们收的是部署服务费。</p>
+  </div>
+
+  <div class="faq-item">
+    <p class="faq-q">Q: 后续更新收费吗？</p>
+    <p class="faq-a">GitHub 持续更新，永久免费。大版本更新会在售后群通知。</p>
+  </div>
+</section>
+
+<!-- ═══ 模块 9：下单须知 ═══ -->
+<section class="sec-warn">
+  <h2>下单前请确认</h2>
+  <div style="font-size:22px; color:#92400e; line-height:2;">
+    <p>⚠️ 本商品为<strong>虚拟商品</strong>，发货后不支持退货（质量问题除外）</p>
+    <p>⚠️ 需要<strong>电脑</strong>（台式机或笔记本），不支持纯手机操作</p>
+    <p>⚠️ 需要安装 <strong>Node.js</strong>（我们会提供安装教程）</p>
+    <p>⚠️ AI 部署需要 <strong>Claude Code 或 Codex</strong> 账号（免费注册）</p>
+    <p>⚠️ 建议有基本的电脑操作能力（会安装软件即可）</p>
+  </div>
+</section>
+
+<!-- ═══ 模块 10：结尾 CTA ═══ -->
+<section class="sec-cta">
+  <h2 style="font-size:38px;">¥9.90，告别手工记账</h2>
+  <p style="font-size:22px; color:rgba(255,255,255,0.7); margin:16px 0;">
+    每天不到 3 分钱（按一年算）<br>
+    换一套 AI 帮你部署的专属财务系统
+  </p>
+
+  <div style="margin: 32px 0;">
+    <div class="price" style="color:#fff;">¥9.90</div>
+    <p style="font-size:20px; color:rgba(255,255,255,0.6);">一次购买 · 永久使用 · 7天无理由退</p>
+  </div>
+
+  <span class="btn btn-orange" style="font-size:32px; padding:22px 80px;">🛒 立即购买</span>
+
+  <p style="margin-top:32px; font-size:20px; color:rgba(255,255,255,0.5);">
+    有疑问？评论区留言，店主亲自回复 ↓
+  </p>
+</section>

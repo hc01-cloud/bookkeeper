@@ -754,6 +754,11 @@
         <div class="form-group"><label>业务线 *</label><select id="exp-bl"></select></div>
         <div class="form-group"><label>支出类别 *</label><select id="exp-cat"></select></div>
         <div class="form-group"><label>金额（元）*</label><input type="number" id="exp-amount" placeholder="0.00" step="0.01"></div>
+        <div class="form-group"><label>支付方式 *</label>
+          <select id="exp-pay">
+            <option>银行转账</option><option>现金</option><option>微信支付</option><option>支付宝</option><option>农商支付</option><option>混合</option>
+          </select>
+        </div>
         <div class="form-group"><label>供应商/收款方</label><input type="text" id="exp-vendor" placeholder="可选"></div>
         <div class="form-group"><label>票据类型</label>
           <select id="exp-ticket-type">
@@ -824,7 +829,7 @@
           <table>
             <thead><tr>
               <th><input type="checkbox" id="exp-check-all" onchange="toggleCheckAll('expense',this.checked)" title="全选"></th>
-              <th>日期</th><th>业务线</th><th>类别</th><th>金额</th><th>供应商</th><th>说明</th><th>票据</th><th>录入人</th><th>操作</th>
+              <th>日期</th><th>业务线</th><th>类别</th><th>支付方式</th><th>金额</th><th>供应商</th><th>说明</th><th>票据</th><th>录入人</th><th>操作</th>
             </tr></thead>
             <tbody id="expense-table-body"></tbody>
           </table>
@@ -837,11 +842,12 @@
   <!-- Reports Page -->
   <div class="page" id="page-reports">
     <div class="card">
-      <div class="card-title">导出月度财务报表</div>
+      <div class="card-title">导出财务报表</div>
       <div class="form-row" style="max-width:400px">
         <div class="form-group"><label>年份</label><select id="rep-year"></select></div>
         <div class="form-group"><label>月份</label>
           <select id="rep-month">
+            <option value="">全年</option>
             <option value="1">1月</option><option value="2">2月</option><option value="3">3月</option>
             <option value="4">4月</option><option value="5">5月</option><option value="6">6月</option>
             <option value="7">7月</option><option value="8">8月</option><option value="9">9月</option>
@@ -850,7 +856,7 @@
         </div>
       </div>
       <button class="btn btn-success" onclick="exportReport()">下载 Excel 报表</button>
-      <p style="margin-top:12px;font-size:13px;color:var(--text2)">报表包含：月度汇总、各业务线收支、收入明细、支出明细、支出分类汇总</p>
+      <p style="margin-top:12px;font-size:13px;color:var(--text2)">报表包含：汇总、各业务线收支、收入明细、支出明细、支出分类汇总、票据汇总。支持导出单月或全年数据。</p>
     </div>
   </div>
 
@@ -906,7 +912,8 @@
           <tbody id="users-table-body"></tbody>
         </table>
       </div>
-    </div><!-- /.page#page-admin -->
+    </div>
+  </div><!-- /.page#page-admin -->
 
   <!-- Payroll Page -->
   <div class="page" id="page-payroll">
@@ -1001,7 +1008,7 @@
       <div class="card" style="padding:0">
         <div class="table-wrap">
           <table>
-            <thead><tr><th>姓名</th><th>岗位</th><th>社保基数</th><th>基本工资</th><th>专项附加扣除/月</th><th>入职日期</th><th>操作</th></tr></thead>
+            <thead><tr><th>姓名</th><th>岗位</th><th>类型</th><th>社保基数</th><th>基本工资</th><th>专项附加扣除/月</th><th>入职日期</th><th>操作</th></tr></thead>
             <tbody id="employees-table-body"></tbody>
           </table>
         </div>
@@ -1060,6 +1067,17 @@
   </div>
 </div>
 
+<!-- Edit Record Modal -->
+<div class="modal-overlay" id="modal-edit-record">
+  <div class="modal" style="max-width:600px">
+    <div class="modal-header">
+      <span class="modal-title" id="edit-modal-title">编辑记录</span>
+      <button class="modal-close" onclick="closeModal('modal-edit-record')">×</button>
+    </div>
+    <div class="modal-body" id="edit-modal-body"></div>
+  </div>
+</div>
+
 <!-- Receipt Viewer -->
 <div class="receipt-viewer" id="receipt-viewer" onclick="this.classList.remove('open')">
   <span class="receipt-viewer-close">×</span>
@@ -1067,6 +1085,82 @@
 </div>
 
 <script>
+// ── Branding — loaded from /api/branding before any rendering ──
+let BRAND = {};
+async function loadBranding() {
+  try {
+    const res = await fetch('/api/branding');
+    if (res.ok) BRAND = await res.json();
+  } catch(e) { /* use defaults */ }
+  applyBranding();
+}
+
+function applyBranding() {
+  const B = BRAND;
+  document.documentElement.lang = B.htmlLang || 'zh-CN';
+  if (B.htmlTitle) document.title = B.htmlTitle;
+  if (B.fontFamily) document.body.style.fontFamily = B.fontFamily;
+
+  // Login page
+  const setText = (sel, text) => { const el = document.querySelector(sel); if (el && text !== undefined) el.textContent = text; };
+  const setHtml = (sel, html) => { const el = document.querySelector(sel); if (el && html !== undefined) el.innerHTML = html; };
+  setText('.login-wordmark-text', B.appShortName);
+  setHtml('.login-headline', B.loginHeadline);
+  setHtml('.login-sub', B.loginSubtext);
+  setText('.login-box-title', B.loginTitle);
+  setText('.login-box-sub', B.loginSubtitle);
+
+  // Sidebar
+  setText('.brand-name', B.appShortName);
+  setText('.brand-sub', B.appTagline);
+
+  // Refresh form dropdowns
+  refreshFormFields();
+}
+
+function refreshFormFields() {
+  // Payment method dropdowns
+  const payHtml = payMethodOptions(null);
+  ['inc-pay', 'exp-pay'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = payHtml;
+  });
+  // Ticket type dropdowns
+  const ticketHtml = ticketTypeOptions('无票');
+  ['inc-ticket-type', 'exp-ticket-type'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = ticketHtml;
+  });
+  // SS config card
+  const B = BRAND;
+  const cityInfo = `${B.cityProvince || ''}${B.cityName || ''}${B.ssYear || ''}`;
+  const ssTitle = document.querySelector('#page-payroll .card-title');
+  if (ssTitle && ssTitle.textContent.includes('社保')) {
+    ssTitle.textContent = `${B.cityName || '惠州'}社保缴费比例配置`;
+  }
+  const infoBox = document.querySelector('#page-payroll .info-box');
+  if (infoBox && infoBox.textContent.includes('社保政策')) {
+    infoBox.textContent = `以下比例依据${cityInfo}年社保政策设置，如政策调整可在此修改。修改后对新计算的工资单生效，历史记录不受影响。`;
+  }
+}
+
+function payMethodOptions(selected) {
+  const methods = BRAND.paymentMethods || ['现金','微信支付','支付宝','农商支付','银行转账','混合'];
+  return methods.map(m => `<option ${m === selected ? 'selected' : ''}>${m}</option>`).join('');
+}
+
+function ticketTypeOptions(selected) {
+  const types = BRAND.ticketTypes || ['增值税专用发票','增值税普通发票','收据','无票'];
+  return types.map(t => `<option value="${t}" ${t === selected ? 'selected' : ''}>${t}</option>`).join('');
+}
+
+function ticketBadgeShort(type) {
+  if (!type || type === '无票') return '无票';
+  if (type.includes('专用')) return '专票';
+  if (type.includes('普通')) return '普票';
+  return '收据';
+}
+
 // Dynamic config — loaded from API on login
 let BL_LIST = [];    // [{id,code,name,color,sort_order}]
 let INC_CATS = [];   // [{id,name}]
@@ -1140,6 +1234,7 @@ async function doLogout() {
 }
 
 async function checkAuth() {
+  await loadBranding();
   const res = await fetch('/api/auth/me');
   if (res.ok) { currentUser = await res.json(); initApp(); }
 }
@@ -1166,8 +1261,8 @@ async function initApp() {
     const el = document.getElementById(id);
     for (let y = yr; y >= yr-3; y--) { const o = document.createElement('option'); o.value = y; o.textContent = y+'年'; el.appendChild(o); }
   });
-  document.getElementById('dash-month').value = String(new Date().getMonth()+1);
-  document.getElementById('rep-month').value = String(new Date().getMonth()+1);
+  document.getElementById('dash-month').value = ''; // 默认全年
+  document.getElementById('rep-month').value = ''; // 默认全年
 
   // Populate business line selects (entry forms)
   ['inc-bl','shift-bl','imp-bl','exp-bl'].forEach(id => {
@@ -1310,6 +1405,7 @@ async function submitIncome() {
     document.getElementById('inc-desc').value = '';
     document.getElementById('inc-ticket-type').value = '无票';
     document.getElementById('inc-ticket-no').value = '';
+    loadDashboard();
   } else { const d = await res.json(); alert(d.error); }
 }
 
@@ -1341,6 +1437,7 @@ async function submitShift() {
     document.getElementById('shift-notes').value='';
     document.getElementById('shift-img').value='';
     document.getElementById('shift-preview').innerHTML='';
+    loadDashboard();
   } else { const d = await res.json(); alert(d.error); }
 }
 
@@ -1367,6 +1464,7 @@ async function submitImport() {
     resultEl.innerHTML = `<span style="color:var(--brand-mid)">✓ 导入成功，新增 <b>${d.count}</b> 条${skipMsg}</span>`;
     document.getElementById('imp-file').value='';
     document.getElementById('imp-filename').textContent='';
+    loadDashboard();
   } else { resultEl.innerHTML = `<span style="color:var(--red)">✗ ${d.error}</span>`; }
 }
 
@@ -1430,6 +1528,7 @@ async function submitExpense() {
   formData.append('description', document.getElementById('exp-desc').value);
   formData.append('ticket_type', document.getElementById('exp-ticket-type').value);
   formData.append('ticket_no', document.getElementById('exp-ticket-no').value);
+  formData.append('payment_method', document.getElementById('exp-pay').value);
   const files = document.getElementById('exp-imgs').files;
   for (const f of files) formData.append('receipts', f);
   if (!formData.get('date') || !formData.get('business_line') || !formData.get('amount')) { alert('请填写日期、业务线和金额'); return; }
@@ -1443,6 +1542,7 @@ async function submitExpense() {
     document.getElementById('exp-ticket-no').value='';
     document.getElementById('exp-imgs').value='';
     document.getElementById('exp-preview').innerHTML='';
+    loadDashboard();
   } else { const d = await res.json(); alert(d.error); }
 }
 
@@ -1489,7 +1589,7 @@ async function loadIncomeRecords(page) {
       <td>${ticketBadge(r.ticket_type, r.ticket_no)}</td>
       <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.description||'-'}</td>
       <td>${r.creator_name||'-'}</td>
-      <td><button class="btn-ghost-danger" onclick="deleteIncome(${r.id})">删除</button></td>
+      <td><button class="btn btn-sm btn-outline" onclick="openEditIncome(${r.id})" style="margin-right:4px">编辑</button><button class="btn-ghost-danger" onclick="deleteIncome(${r.id})">删除</button></td>
     </tr>`).join('');
   renderPagination('income-pagination', Math.ceil(d.total/50), incPage, p => loadIncomeRecords(p));
 }
@@ -1510,7 +1610,7 @@ async function loadExpenseRecords(page) {
   const tbody = document.getElementById('expense-table-body');
   document.getElementById('exp-check-all').checked = false;
   document.getElementById('exp-batch-del-btn').style.display = 'none';
-  if (!d.rows.length) { tbody.innerHTML = '<tr><td colspan="10" class="empty-state">暂无记录</td></tr>'; document.getElementById('expense-pagination').innerHTML=''; return; }
+  if (!d.rows.length) { tbody.innerHTML = '<tr><td colspan="11" class="empty-state">暂无记录</td></tr>'; document.getElementById('expense-pagination').innerHTML=''; return; }
   tbody.innerHTML = d.rows.map(r => {
     const imgs = JSON.parse(r.receipt_images||'[]');
     const imgHtml = imgs.length ? `<button class="btn btn-sm btn-outline" onclick="viewReceipt('/uploads/receipts/${imgs[0]}')">查看(${imgs.length})</button>` : '-';
@@ -1519,13 +1619,14 @@ async function loadExpenseRecords(page) {
       <td>${r.date}</td>
       <td><span class="badge" ${blBadgeStyle(r.business_line)}>${blName(r.business_line)}</span></td>
       <td>${r.category}</td>
+      <td>${r.payment_method||'-'}</td>
       <td class="amount-expense">¥${r.amount.toFixed(2)}</td>
       <td>${r.vendor||'-'}</td>
       <td>${ticketBadge(r.ticket_type, r.ticket_no)}</td>
       <td style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.description||'-'}</td>
       <td>${imgHtml}</td>
       <td>${r.creator_name||'-'}</td>
-      <td><button class="btn-ghost-danger" onclick="deleteExpense(${r.id})">删除</button></td>
+      <td><button class="btn btn-sm btn-outline" onclick="openEditExpense(${r.id})" style="margin-right:4px">编辑</button><button class="btn-ghost-danger" onclick="deleteExpense(${r.id})">删除</button></td>
     </tr>`;
   }).join('');
   renderPagination('expense-pagination', Math.ceil(d.total/50), expPage, p => loadExpenseRecords(p));
@@ -1574,6 +1675,104 @@ async function batchDelete(type) {
   type === 'income' ? loadIncomeRecords() : loadExpenseRecords();
 }
 
+// ── Edit Record Modal ──────────────────────────────────
+let _editType = ''; // 'income' or 'expense'
+let _editId = null;
+
+async function openEditIncome(id) {
+  const res = await fetch('/api/income/' + id);
+  if (!res.ok) { const d = await res.json(); alert(d.error); return; }
+  const r = await res.json();
+  _editType = 'income'; _editId = id;
+  document.getElementById('edit-modal-title').textContent = '编辑收入记录';
+  document.getElementById('edit-modal-body').innerHTML = `
+    <div class="form-row">
+      <div class="form-group"><label>日期 *</label><input type="date" id="edit-date" value="${r.date}"></div>
+      <div class="form-group"><label>业务线 *</label><select id="edit-bl">${BL_LIST.map(b => `<option value="${b.code}" ${r.business_line===b.code?'selected':''}>${b.name}</option>`).join('')}</select></div>
+      <div class="form-group"><label>金额（元）*</label><input type="number" id="edit-amount" value="${r.amount}" step="0.01"></div>
+      <div class="form-group"><label>支付方式</label><select id="edit-pay">${payMethodOptions(r.payment_method)}</select></div>
+      <div class="form-group"><label>收入类别</label><select id="edit-cat">${INC_CATS.map(c => `<option value="${c.name}" ${r.category===c.name?'selected':''}>${c.name}</option>`).join('')}</select></div>
+      <div class="form-group"><label>票据类型</label><select id="edit-tt">${ticketTypeOptions(r.ticket_type)}</select></div>
+      <div class="form-group"><label>票号</label><input type="text" id="edit-tno" value="${r.ticket_no||''}"></div>
+      <div class="form-group form-full"><label>说明</label><input type="text" id="edit-desc" value="${r.description||''}"></div>
+    </div>
+    <div id="edit-err" class="error-msg" style="margin-bottom:12px"></div>
+    <button class="btn btn-success" onclick="submitEditIncome()" style="width:100%">保存修改</button>`;
+  document.getElementById('modal-edit-record').classList.add('open');
+}
+
+async function submitEditIncome() {
+  const body = {
+    date: document.getElementById('edit-date').value,
+    business_line: document.getElementById('edit-bl').value,
+    amount: document.getElementById('edit-amount').value,
+    payment_method: document.getElementById('edit-pay').value,
+    category: document.getElementById('edit-cat').value,
+    description: document.getElementById('edit-desc').value,
+    ticket_type: document.getElementById('edit-tt').value,
+    ticket_no: document.getElementById('edit-tno').value
+  };
+  const res = await fetch('/api/income/' + _editId, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+  if (res.ok) {
+    closeModal('modal-edit-record');
+    loadIncomeRecords();
+    loadDashboard();
+  } else { const d = await res.json(); document.getElementById('edit-err').textContent = d.error; }
+}
+
+async function openEditExpense(id) {
+  const res = await fetch('/api/expense/' + id);
+  if (!res.ok) { const d = await res.json(); alert(d.error); return; }
+  const r = await res.json();
+  _editType = 'expense'; _editId = id;
+  document.getElementById('edit-modal-title').textContent = '编辑支出记录';
+  const imgs = JSON.parse(r.receipt_images||'[]');
+  document.getElementById('edit-modal-body').innerHTML = `
+    <div class="form-row">
+      <div class="form-group"><label>日期 *</label><input type="date" id="edit-date" value="${r.date}"></div>
+      <div class="form-group"><label>业务线 *</label><select id="edit-bl">${BL_LIST.map(b => `<option value="${b.code}" ${r.business_line===b.code?'selected':''}>${b.name}</option>`).join('')}</select></div>
+      <div class="form-group"><label>支出类别 *</label><select id="edit-cat">${EXP_CATS.map(c => `<option value="${c.name}" ${r.category===c.name?'selected':''}>${c.name}</option>`).join('')}</select></div>
+      <div class="form-group"><label>金额（元）*</label><input type="number" id="edit-amount" value="${r.amount}" step="0.01"></div>
+      <div class="form-group"><label>支付方式</label><select id="edit-pay">${payMethodOptions(r.payment_method)}</select></div>
+      <div class="form-group"><label>供应商/收款方</label><input type="text" id="edit-vendor" value="${r.vendor||''}"></div>
+      <div class="form-group"><label>票据类型</label><select id="edit-tt">${ticketTypeOptions(r.ticket_type)}</select></div>
+      <div class="form-group"><label>票号</label><input type="text" id="edit-tno" value="${r.ticket_no||''}"></div>
+      <div class="form-group form-full"><label>说明</label><input type="text" id="edit-desc" value="${r.description||''}"></div>
+    </div>
+    ${imgs.length ? `<div style="margin-bottom:12px"><label style="font-size:12px;color:var(--text2);margin-bottom:4px;display:block">已有票据图片（${imgs.length}张）</label><div style="display:flex;gap:8px;flex-wrap:wrap">${imgs.map(f => `<div style="position:relative"><img src="/uploads/receipts/${f}" style="width:80px;height:80px;object-fit:cover;border-radius:4px;border:1px solid var(--border)"><button onclick="deleteReceiptImg(${_editId},'${f}')" style="position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;background:var(--red);color:#fff;border:none;cursor:pointer;font-size:10px;line-height:18px">×</button></div>`).join('')}</div></div>` : ''}
+    <div class="form-group"><label>新增票据图片</label><input type="file" id="edit-imgs" accept="image/*" multiple style="padding:8px"></div>
+    <div id="edit-err" class="error-msg" style="margin-bottom:12px"></div>
+    <button class="btn btn-success" onclick="submitEditExpense()" style="width:100%">保存修改</button>`;
+  document.getElementById('modal-edit-record').classList.add('open');
+}
+
+async function submitEditExpense() {
+  const formData = new FormData();
+  formData.append('date', document.getElementById('edit-date').value);
+  formData.append('business_line', document.getElementById('edit-bl').value);
+  formData.append('category', document.getElementById('edit-cat').value);
+  formData.append('amount', document.getElementById('edit-amount').value);
+  formData.append('payment_method', document.getElementById('edit-pay').value);
+  formData.append('vendor', document.getElementById('edit-vendor').value);
+  formData.append('description', document.getElementById('edit-desc').value);
+  formData.append('ticket_type', document.getElementById('edit-tt').value);
+  formData.append('ticket_no', document.getElementById('edit-tno').value);
+  const files = document.getElementById('edit-imgs').files;
+  for (const f of files) formData.append('receipts', f);
+  const res = await fetch('/api/expense/' + _editId, { method:'PUT', body:formData });
+  if (res.ok) {
+    closeModal('modal-edit-record');
+    loadExpenseRecords();
+    loadDashboard();
+  } else { const d = await res.json(); document.getElementById('edit-err').textContent = d.error; }
+}
+
+async function deleteReceiptImg(expId, filename) {
+  if (!confirm('删除这张票据图片？')) return;
+  const res = await fetch(`/api/expense/${expId}/receipts/${filename}`, { method:'DELETE' });
+  if (res.ok) openEditExpense(expId); else { const d = await res.json(); alert(d.error); }
+}
+
 function clearIncFilter() {
   document.getElementById('rec-inc-start').value='';
   document.getElementById('rec-inc-end').value='';
@@ -1605,7 +1804,9 @@ function renderPagination(containerId, totalPages, current, callback) {
 function exportReport() {
   const year = document.getElementById('rep-year').value;
   const month = document.getElementById('rep-month').value;
-  window.location.href = `/api/reports/export?year=${year}&month=${month}`;
+  const params = new URLSearchParams({ year });
+  if (month) params.set('month', month);
+  window.location.href = '/api/reports/export?' + params;
 }
 
 // ── Settings ──────────────────────────────────────────
@@ -1772,7 +1973,8 @@ function viewReceipt(src) {
 
 function fmtMoney(v) {
   if (v === undefined || v === null) return '--';
-  return '¥' + Math.abs(v).toLocaleString('zh-CN', {minimumFractionDigits:2, maximumFractionDigits:2});
+  const locale = (BRAND && BRAND.locale) || 'zh-CN';
+  return '¥' + Math.abs(v).toLocaleString(locale, {minimumFractionDigits:2, maximumFractionDigits:2});
 }
 
 // ── Payroll ────────────────────────────────────────────
@@ -1796,7 +1998,7 @@ async function loadEmployees() {
   _employees = res.ok ? await res.json() : [];
   const tbody = document.getElementById('employees-table-body');
   if (!_employees.length) {
-    tbody.innerHTML = '<tr><td colspan="7" class="empty-state">暂无员工，点击右上角添加</td></tr>'; return;
+    tbody.innerHTML = '<tr><td colspan="8" class="empty-state">暂无员工，点击右上角添加</td></tr>'; return;
   }
   tbody.innerHTML = _employees.map(e => {
     const totalDed = e.deductions.reduce((s, d) => s + d.monthly_amount, 0);
@@ -1806,6 +2008,7 @@ async function loadEmployees() {
     return `<tr>
       <td><b>${e.name}</b></td>
       <td>${e.position || '-'}</td>
+      <td><span style="font-size:12px;padding:2px 8px;border-radius:3px;background:${e.employment_type==='兼职'?'#FFF3E0':'#E8F5E9'};color:${e.employment_type==='兼职'?'#E65100':'#2E7D32'}">${e.employment_type||'全职'}</span></td>
       <td>${fmtMoney(e.ss_base)}</td>
       <td>${fmtMoney(e.base_salary)}</td>
       <td>${totalDed > 0 ? fmtMoney(totalDed) + '/月' : ''}<div style="margin-top:4px">${dedList}</div></td>
@@ -1838,6 +2041,8 @@ async function calcPayroll() {
   document.getElementById('pr-net').textContent   = fmtMoney(_payrollResult.net_salary);
   document.getElementById('pr-cost').textContent  = fmtMoney(_payrollResult.total_cost);
 
+  const rates = BRAND.ssRates || {};
+  const pct = (r) => (r * 100).toFixed(1).replace(/\.0$/, '') + '%';
   const rows = [
     ['应发工资明细', '', true],
     ['基本工资', _payrollResult.base_salary],
@@ -1846,23 +2051,23 @@ async function calcPayroll() {
     ['应发合计', _payrollResult.gross_salary, false, true],
     ['', '', true],
     ['个人扣款', '', true],
-    [`养老保险个人部分（社保基数 ${fmtMoney(_payrollResult.ss_base)} × 8%）`, _payrollResult.pension_personal],
-    [`医疗保险个人部分（× 2%）`, _payrollResult.medical_personal],
-    [`失业保险个人部分（× 0.2%）`, _payrollResult.unemployment_personal],
+    [`养老保险个人部分（社保基数 ${fmtMoney(_payrollResult.ss_base)} × ${pct(rates.pension_personal || 0.08)}）`, _payrollResult.pension_personal],
+    [`医疗保险个人部分（× ${pct(rates.medical_personal || 0.02)}）`, _payrollResult.medical_personal],
+    [`失业保险个人部分（× ${pct(rates.unemployment_personal || 0.002)}）`, _payrollResult.unemployment_personal],
     ['个人社保合计', _payrollResult.total_personal_ss, false, true],
     ['专项附加扣除', _payrollResult.special_deductions],
-    ['起征点扣除', 5000],
+    ['起征点扣除', BRAND.taxExemption || 5000],
     ['应纳税所得额', _payrollResult.taxable_income, false, true],
     ['个人所得税', _payrollResult.income_tax],
     ['', '', true],
     ['实发工资', _payrollResult.net_salary, false, true, 'var(--brand)'],
     ['', '', true],
     ['企业成本', '', true],
-    [`养老保险公司部分（× 14%）`, _payrollResult.pension_company],
-    [`医疗保险公司部分（× 6.5%）`, _payrollResult.medical_company],
-    [`失业保险公司部分（× 0.4%）`, _payrollResult.unemployment_company],
-    [`工伤保险公司部分（× 0.4%）`, _payrollResult.injury_company],
-    [`生育保险公司部分（× 0.5%）`, _payrollResult.maternity_company],
+    [`养老保险公司部分（× ${pct(rates.pension_company || 0.14)}）`, _payrollResult.pension_company],
+    [`医疗保险公司部分（× ${pct(rates.medical_company || 0.065)}）`, _payrollResult.medical_company],
+    [`失业保险公司部分（× ${pct(rates.unemployment_company || 0.005)}）`, _payrollResult.unemployment_company],
+    [`工伤保险公司部分（× ${pct(rates.injury_company || 0.002)}）`, _payrollResult.injury_company],
+    [`生育保险公司部分（× ${pct(rates.maternity_company || 0.0)}）`, _payrollResult.maternity_company],
     ['公司社保合计', _payrollResult.total_company_ss, false, true],
     ['企业用工总成本', _payrollResult.total_cost, false, true, 'var(--orange)'],
   ];
@@ -1973,12 +2178,14 @@ async function saveSsConfig() {
 function openAddEmployee() {
   const name     = prompt('姓名 *');       if (!name) return;
   const position = prompt('岗位（可选）') || '';
+  const empType  = prompt('员工类型（全职/兼职）', '全职') || '全职';
+  const dailyWage = empType === '兼职' ? (prompt('日薪（元）', '0') || '0') : '0';
   const ssBase   = prompt('社保基数（元）*'); if (!ssBase) return;
   const salary   = prompt('基本工资（元）*'); if (!salary) return;
   const hireDate = prompt('入职日期（如 2024-01-01，可选）') || '';
   fetch('/api/payroll/employees', {
     method: 'POST', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ name, position, ss_base: ssBase, base_salary: salary, hire_date: hireDate })
+    body: JSON.stringify({ name, position, employment_type: empType, daily_wage: parseFloat(dailyWage), ss_base: ssBase, base_salary: salary, hire_date: hireDate })
   }).then(r => r.json()).then(d => {
     if (d.success) { loadEmployees(); loadPayrollEmployeeSelect(); }
     else alert(d.error);
@@ -1990,12 +2197,14 @@ function openEditEmployee(id) {
   if (!emp) return;
   const name     = prompt('姓名', emp.name);       if (!name) return;
   const position = prompt('岗位', emp.position || '');
+  const empType  = prompt('员工类型（全职/兼职）', emp.employment_type || '全职') || '全职';
+  const dailyWage = empType === '兼职' ? (prompt('日薪（元）', emp.daily_wage || '0') || '0') : '0';
   const ssBase   = prompt('社保基数（元）', emp.ss_base); if (!ssBase) return;
   const salary   = prompt('基本工资（元）', emp.base_salary); if (!salary) return;
   const hireDate = prompt('入职日期', emp.hire_date || '');
   fetch(`/api/payroll/employees/${id}`, {
     method: 'PUT', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ name, position, ss_base: ssBase, base_salary: salary, hire_date: hireDate })
+    body: JSON.stringify({ name, position, employment_type: empType, daily_wage: parseFloat(dailyWage), ss_base: ssBase, base_salary: salary, hire_date: hireDate })
   }).then(r => r.json()).then(d => {
     if (d.success) { loadEmployees(); loadPayrollEmployeeSelect(); }
     else alert(d.error);
@@ -2009,12 +2218,15 @@ async function deleteEmployee(id, name) {
 }
 
 function openAddDed(empId) {
-  const types = ['子女教育（2000元/孩）','继续教育（400元/月）','住房贷款利息（1000元/月）','住房租金（800元/月）','赡养老人（2000元/月）','其他'];
+  const dedTypes = (BRAND.specialDeductionTypes || [{name:'子女教育',amount:2000},{name:'继续教育',amount:400},{name:'住房贷款利息',amount:1000},{name:'住房租金',amount:800},{name:'赡养老人',amount:2000}]);
+  const types = dedTypes.map(d => `${d.name}（${d.amount}元/月）`);
+  types.push('其他');
   const type = prompt('扣除类型：\n' + types.map((t,i)=>`${i+1}. ${t}`).join('\n') + '\n\n请输入数字选择，或直接输入名称');
   if (!type) return;
   let finalType = type;
   const idx = parseInt(type) - 1;
-  if (idx >= 0 && idx < types.length) finalType = types[idx].split('（')[0];
+  if (idx >= 0 && idx < types.length - 1) finalType = dedTypes[idx].name;
+  else if (idx === types.length - 1) finalType = '其他';
   const amount = prompt('每月扣除金额（元）');
   if (!amount) return;
   fetch(`/api/payroll/employees/${empId}/deductions`, {
